@@ -61,21 +61,17 @@ def json_example():
     from faker import Faker
 
     f = Faker()
-    records = []
-    for i in range(1000):
-        records.append(
-            dict(
-                timestamp=f.unix_time(),
-                uri=f.uri(),
-                session=f.uuid4()[:8],
-                user=f.uuid4()[:6] if random.random() > 0.4 else None,
-                client=dict(
-                    browser=f.chrome(),
-                    adblock=(True if random.random() > 0.7 else False),
-                ),
-                country=f.country(),
-            )
+    records = [
+        dict(
+            timestamp=f.unix_time(),
+            uri=f.uri(),
+            session=f.uuid4()[:8],
+            user=f.uuid4()[:6] if random.random() > 0.4 else None,
+            client=dict(browser=f.chrome(), adblock=random.random() > 0.7),
+            country=f.country(),
         )
+        for _ in range(1000)
+    ]
     with open("weblog.jsonl", "w") as fd:
         for record in records:
             fd.write(json.dumps(record))

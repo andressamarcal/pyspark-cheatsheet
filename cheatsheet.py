@@ -15,7 +15,7 @@ from slugify import slugify
 
 from delta import *
 
-warehouse_path = "file://{}/spark_warehouse".format(os.getcwd())
+warehouse_path = f"file://{os.getcwd()}/spark_warehouse"
 builder = (
     SparkSession.builder.master("local[*]")
     .config("spark.driver.memory", "2G")
@@ -52,7 +52,7 @@ def get_result_text(result, truncate=True):
     elif type(result) == list:
         return "\n".join(result)
     elif type(result) == dict and "image" in result:
-        return "![{}]({})".format(result["alt"], result["image"])
+        return f'![{result["alt"]}]({result["image"]})'
     else:
         return result
 
@@ -121,7 +121,7 @@ class snippet:
     def run(self, show=True):
         assert self.dataset is not None, "Dataset not set"
         assert self.name is not None, "Name not set"
-        logging.info("--- {} ---".format(self.name))
+        logging.info(f"--- {self.name} ---")
         if self.skip_run:
             if self.manual_output:
                 result_text = self.manual_output
@@ -132,12 +132,11 @@ class snippet:
             return None
         self.df = self.load_data()
         retval = self.snippet(self.df)
-        if show:
-            if retval is not None:
-                result_text = get_result_text(retval, self.truncate)
-                logging.info(result_text)
-        else:
+        if not show:
             return retval
+        if retval is not None:
+            result_text = get_result_text(retval, self.truncate)
+            logging.info(result_text)
 
 
 class loadsave_dataframe_from_csv(snippet):
@@ -665,8 +664,7 @@ Modify a column in-place using `withColumn`, specifying the output column name t
     def snippet(self, auto_df):
         from pyspark.sql.functions import col, concat, lit
 
-        df = auto_df.withColumn("modelyear", concat(lit("19"), col("modelyear")))
-        return df
+        return auto_df.withColumn("modelyear", concat(lit("19"), col("modelyear")))
 
 
 class dfo_add_column_builtin(snippet):
@@ -683,10 +681,9 @@ class dfo_add_column_builtin(snippet):
     def snippet(self, auto_df):
         from pyspark.sql.functions import upper, lower
 
-        df = auto_df.withColumn("upper", upper(auto_df.carname)).withColumn(
+        return auto_df.withColumn("upper", upper(auto_df.carname)).withColumn(
             "lower", lower(auto_df.carname)
         )
-        return df
 
 
 class dfo_add_column_custom_udf(snippet):
@@ -705,8 +702,7 @@ Create a UDF by providing a function to the udf function. This example shows a [
         from pyspark.sql.types import StringType
 
         first_word_udf = udf(lambda x: x.split()[0], StringType())
-        df = auto_df.withColumn("manufacturer", first_word_udf(col("carname")))
-        return df
+        return auto_df.withColumn("manufacturer", first_word_udf(col("carname")))
 
 
 class dfo_concat_columns(snippet):
@@ -721,10 +717,9 @@ class dfo_concat_columns(snippet):
     def snippet(self, auto_df):
         from pyspark.sql.functions import concat, col, lit
 
-        df = auto_df.withColumn(
+        return auto_df.withColumn(
             "concatenated", concat(col("cylinders"), lit("_"), col("mpg"))
         )
-        return df
 
 
 class dfo_string_to_double(snippet):
@@ -738,8 +733,7 @@ class dfo_string_to_double(snippet):
     def snippet(self, auto_df):
         from pyspark.sql.functions import col
 
-        df = auto_df.withColumn("horsepower", col("horsepower").cast("double"))
-        return df
+        return auto_df.withColumn("horsepower", col("horsepower").cast("double"))
 
 
 class dfo_string_to_integer(snippet):
@@ -753,8 +747,7 @@ class dfo_string_to_integer(snippet):
     def snippet(self, auto_df):
         from pyspark.sql.functions import col
 
-        df = auto_df.withColumn("horsepower", col("horsepower").cast("int"))
-        return df
+        return auto_df.withColumn("horsepower", col("horsepower").cast("int"))
 
 
 class dfo_change_column_name_single(snippet):
@@ -766,8 +759,7 @@ class dfo_change_column_name_single(snippet):
         self.priority = 600
 
     def snippet(self, auto_df):
-        df = auto_df.withColumnRenamed("horsepower", "horses")
-        return df
+        return auto_df.withColumnRenamed("horsepower", "horses")
 
 
 class dfo_change_column_name_multi(snippet):
@@ -782,10 +774,9 @@ If you need to change multiple column names you can chain `withColumnRenamed` ca
 """
 
     def snippet(self, auto_df):
-        df = auto_df.withColumnRenamed("horsepower", "horses").withColumnRenamed(
+        return auto_df.withColumnRenamed("horsepower", "horses").withColumnRenamed(
             "modelyear", "year"
         )
-        return df
 
 
 class dfo_change_column_name_all(snippet):
@@ -800,8 +791,7 @@ To rename all columns use toDF with the desired column names in the argument lis
 """
 
     def snippet(self, auto_df):
-        df = auto_df.toDF(*["X" + name for name in auto_df.columns])
-        return df
+        return auto_df.toDF(*["X" + name for name in auto_df.columns])
 
 
 class dfo_column_to_python_list(snippet):
@@ -822,7 +812,7 @@ Steps below:
 
     def snippet(self, auto_df):
         names = auto_df.select("carname").rdd.flatMap(lambda x: x).collect()
-        print(str(names[:10]))
+        print(names[:10])
         return str(names[:10])
 
 
@@ -874,7 +864,7 @@ Steps below:
 
     def snippet(self, auto_df):
         average = auto_df.agg(dict(mpg="avg")).first()[0]
-        print(str(average))
+        print(average)
         return str(average)
 
 
@@ -940,8 +930,7 @@ You can create an empty `DataFrame` the same way you create other in-line `DataF
                 StructField("my_string", StringType(), True),
             ]
         )
-        df = spark.createDataFrame([], schema)
-        return df
+        return spark.createDataFrame([], schema)
 
 
 class dfo_drop_column(snippet):
@@ -953,8 +942,7 @@ class dfo_drop_column(snippet):
         self.priority = 500
 
     def snippet(self, auto_df):
-        df = auto_df.drop("horsepower")
-        return df
+        return auto_df.drop("horsepower")
 
 
 class dfo_print_contents_rdd(snippet):
@@ -1001,14 +989,13 @@ To set a new column's values when using `withColumn`, use the `when` / `otherwis
     def snippet(self, auto_df):
         from pyspark.sql.functions import col, when
 
-        df = auto_df.withColumn(
+        return auto_df.withColumn(
             "mpg_class",
             when(col("mpg") <= 20, "low")
             .when(col("mpg") <= 30, "mid")
             .when(col("mpg") <= 40, "high")
             .otherwise("very high"),
         )
-        return df
 
 
 class dfo_constant_column(snippet):
@@ -1022,8 +1009,7 @@ class dfo_constant_column(snippet):
     def snippet(self, auto_df):
         from pyspark.sql.functions import lit
 
-        df = auto_df.withColumn("one", lit(1))
-        return df
+        return auto_df.withColumn("one", lit(1))
 
 
 class dfo_foreach(snippet):
@@ -1060,10 +1046,7 @@ You can run `map` on a `DataFrame` by accessing its underlying `RDD`. It is much
 
     def snippet(self, auto_df):
         def map_function(row):
-            if row.horsepower is not None:
-                return [float(row.horsepower) * 10]
-            else:
-                return [None]
+            return [float(row.horsepower) * 10] if row.horsepower is not None else [None]
 
         df = auto_df.rdd.map(map_function).toDF()
         return df
@@ -1086,10 +1069,7 @@ Note also that you can [`yield`](https://docs.python.org/3/reference/expressions
         from pyspark.sql.types import Row
 
         def flatmap_function(row):
-            if row.cylinders is not None:
-                return list(range(int(row.cylinders)))
-            else:
-                return [None]
+            return list(range(int(row.cylinders))) if row.cylinders is not None else [None]
 
         rdd = auto_df.rdd.flatMap(flatmap_function)
         row = Row("val")
@@ -1144,8 +1124,7 @@ class dfo_select_particular(snippet):
         self.priority = 800
 
     def snippet(self, auto_df):
-        df = auto_df.select(["mpg", "cylinders", "displacement"])
-        return df
+        return auto_df.select(["mpg", "cylinders", "displacement"])
 
 
 class dfo_size(snippet):
@@ -1158,13 +1137,10 @@ class dfo_size(snippet):
         self.docmd = "IGNORE"
 
     def snippet(self, auto_df):
-        print("{} rows".format(auto_df.count()))
-        print("{} columns".format(len(auto_df.columns)))
+        print(f"{auto_df.count()} rows")
+        print(f"{len(auto_df.columns)} columns")
         # EXCLUDE
-        return [
-            "{} rows".format(auto_df.count()),
-            "{} columns".format(len(auto_df.columns)),
-        ]
+        return [f"{auto_df.count()} rows", f"{len(auto_df.columns)} columns"]
         # INCLUDE
 
 
@@ -1177,8 +1153,8 @@ class dfo_get_number_partitions(snippet):
         self.priority = 1300
 
     def snippet(self, auto_df):
-        print("{} partition(s)".format(auto_df.rdd.getNumPartitions()))
-        return "{} partition(s)".format(auto_df.rdd.getNumPartitions())
+        print(f"{auto_df.rdd.getNumPartitions()} partition(s)")
+        return f"{auto_df.rdd.getNumPartitions()} partition(s)"
 
 
 class dfo_get_dtypes(snippet):
@@ -1205,8 +1181,7 @@ class group_max_value(snippet):
     def snippet(self, auto_df):
         from pyspark.sql.functions import col, max
 
-        df = auto_df.select(max(col("horsepower")).alias("max_horsepower"))
-        return df
+        return auto_df.select(max(col("horsepower")).alias("max_horsepower"))
 
 
 class group_filter_on_count(snippet):
@@ -1220,8 +1195,7 @@ class group_filter_on_count(snippet):
     def snippet(self, auto_df):
         from pyspark.sql.functions import col
 
-        df = auto_df.groupBy("cylinders").count().where(col("count") > 100)
-        return df
+        return auto_df.groupBy("cylinders").count().where(col("count") > 100)
 
 
 class group_topn_per_group(snippet):
@@ -1248,13 +1222,12 @@ To find the top N per group we:
         # To get the maximum per group, set n=1.
         n = 5
         w = Window().partitionBy("cylinders").orderBy(col("horsepower").desc())
-        df = (
+        return (
             auto_df.withColumn("horsepower", col("horsepower").cast("double"))
             .withColumn("rn", row_number().over(w))
             .where(col("rn") <= n)
             .select("*")
         )
-        return df
 
 
 class group_basic_ntile(snippet):
@@ -1274,8 +1247,7 @@ The `ntile` function computes percentiles. Specify how many with an integer argu
         from pyspark.sql.window import Window
 
         w = Window().orderBy(col("mpg").desc())
-        df = auto_df.withColumn("ntile4", ntile(4).over(w))
-        return df
+        return auto_df.withColumn("ntile4", ntile(4).over(w))
 
 
 class group_ntile_partition(snippet):
@@ -1295,8 +1267,7 @@ If you need to compute partition-wise percentiles, for example percentiles broke
         from pyspark.sql.window import Window
 
         w = Window().partitionBy("cylinders").orderBy(col("mpg").desc())
-        df = auto_df.withColumn("ntile4", ntile(4).over(w))
-        return df
+        return auto_df.withColumn("ntile4", ntile(4).over(w))
 
 
 class group_ntile_after_aggregate(snippet):
@@ -1317,8 +1288,7 @@ If you need to compute percentiles of an aggregate, for example ranking averages
 
         grouped = auto_df.groupBy("modelyear").count()
         w = Window().orderBy(col("count").desc())
-        df = grouped.withColumn("ntile4", ntile(4).over(w))
-        return df
+        return grouped.withColumn("ntile4", ntile(4).over(w))
 
 
 class group_filter_less_than_percentile(snippet):
@@ -1342,8 +1312,7 @@ To filter out all rows with a value outside a target percentile range:
         target_percentile = auto_df.agg(
             F.expr("percentile(mpg, 0.9)").alias("target_percentile")
         ).first()[0]
-        df = auto_df.filter(col("mpg") > lit(target_percentile))
-        return df
+        return auto_df.filter(col("mpg") > lit(target_percentile))
 
 
 class group_rollup(snippet):
@@ -1417,8 +1386,7 @@ class group_count_unique_after_group(snippet):
     def snippet(self, auto_df):
         from pyspark.sql.functions import countDistinct
 
-        df = auto_df.groupBy("cylinders").agg(countDistinct("mpg"))
-        return df
+        return auto_df.groupBy("cylinders").agg(countDistinct("mpg"))
 
 
 class group_sum_column(snippet):
@@ -1432,8 +1400,7 @@ class group_sum_column(snippet):
     def snippet(self, auto_df):
         from pyspark.sql.functions import sum
 
-        df = auto_df.groupBy("cylinders").agg(sum("weight").alias("total_weight"))
-        return df
+        return auto_df.groupBy("cylinders").agg(sum("weight").alias("total_weight"))
 
 
 class group_sum_columns_no_group(snippet):
@@ -1449,8 +1416,7 @@ The `agg` method allows you to easily run multiple aggregations by accepting a d
 
     def snippet(self, auto_df):
         exprs = {x: "sum" for x in ("weight", "cylinders", "mpg")}
-        df = auto_df.agg(exprs)
-        return df
+        return auto_df.agg(exprs)
 
 
 class group_histogram(snippet):
@@ -1491,10 +1457,9 @@ The [`collect_list`](https://spark.apache.org/docs/latest/api/sql/index.html#col
     def snippet(self, auto_df):
         from pyspark.sql.functions import col, collect_list
 
-        df = auto_df.groupBy("cylinders").agg(
+        return auto_df.groupBy("cylinders").agg(
             collect_list(col("carname")).alias("models")
         )
-        return df
 
 
 class group_group_and_count(snippet):
@@ -1529,12 +1494,11 @@ class group_group_and_sort(snippet):
     def snippet(self, auto_df):
         from pyspark.sql.functions import avg, desc
 
-        df = (
+        return (
             auto_df.groupBy("cylinders")
             .agg(avg("horsepower").alias("avg_horsepower"))
             .orderBy(desc("avg_horsepower"))
         )
-        return df
 
 
 class group_group_having(snippet):
@@ -1553,13 +1517,12 @@ To filter values after an aggregation simply use `.filter` on the `DataFrame` af
     def snippet(self, auto_df):
         from pyspark.sql.functions import col, desc
 
-        df = (
+        return (
             auto_df.groupBy("cylinders")
             .count()
             .orderBy(desc("count"))
             .filter(col("count") > 100)
         )
-        return df
 
 
 class group_multiple_columns(snippet):
@@ -1574,12 +1537,11 @@ class group_multiple_columns(snippet):
     def snippet(self, auto_df):
         from pyspark.sql.functions import avg, desc
 
-        df = (
+        return (
             auto_df.groupBy(["modelyear", "cylinders"])
             .agg(avg("horsepower").alias("avg_horsepower"))
             .orderBy(desc("avg_horsepower"))
         )
-        return df
 
 
 class group_agg_multiple_columns(snippet):
@@ -1595,8 +1557,7 @@ The `agg` method allows you to easily run multiple aggregations by accepting a d
 
     def snippet(self, auto_df):
         expressions = dict(horsepower="avg", weight="max", displacement="max")
-        df = auto_df.groupBy("modelyear").agg(expressions)
-        return df
+        return auto_df.groupBy("modelyear").agg(expressions)
 
 
 class group_order_multiple_columns(snippet):
@@ -1623,8 +1584,7 @@ If you want to specify sort columns you have two choices:
             desc_nulls_last("avg(horsepower)"),
             asc("max(weight)"),
         ]
-        df = auto_df.groupBy("modelyear").agg(expressions).orderBy(*orderings)
-        return df
+        return auto_df.groupBy("modelyear").agg(expressions).orderBy(*orderings)
 
 
 class group_distinct_all_columns(snippet):
@@ -1638,8 +1598,7 @@ class group_distinct_all_columns(snippet):
     def snippet(self, auto_df):
         from pyspark.sql.functions import countDistinct
 
-        df = auto_df.agg(*(countDistinct(c) for c in auto_df.columns))
-        return df
+        return auto_df.agg(*(countDistinct(c) for c in auto_df.columns))
 
 
 class group_aggregate_all_numerics(snippet):
@@ -1655,10 +1614,9 @@ class group_aggregate_all_numerics(snippet):
 """
 
     def snippet(self, auto_df_fixed):
-        numerics = set(["decimal", "double", "float", "integer", "long", "short"])
+        numerics = {"decimal", "double", "float", "integer", "long", "short"}
         exprs = {x[0]: "sum" for x in auto_df_fixed.dtypes if x[1] in numerics}
-        df = auto_df_fixed.agg(exprs)
-        return df
+        return auto_df_fixed.agg(exprs)
 
 
 class sortsearch_distinct_values(snippet):
@@ -1670,8 +1628,7 @@ class sortsearch_distinct_values(snippet):
         self.priority = 1000
 
     def snippet(self, auto_df):
-        df = auto_df.select("cylinders").distinct()
-        return df
+        return auto_df.select("cylinders").distinct()
 
 
 class sortsearch_string_match(snippet):
@@ -1683,8 +1640,7 @@ class sortsearch_string_match(snippet):
         self.priority = 500
 
     def snippet(self, auto_df):
-        df = auto_df.where(auto_df.carname.contains("custom"))
-        return df
+        return auto_df.where(auto_df.carname.contains("custom"))
 
 
 class sortsearch_string_contents(snippet):
@@ -1698,8 +1654,7 @@ class sortsearch_string_contents(snippet):
     def snippet(self, auto_df):
         from pyspark.sql.functions import col
 
-        df = auto_df.where(col("carname").like("%custom%"))
-        return df
+        return auto_df.where(col("carname").like("%custom%"))
 
 
 class sortsearch_in_list(snippet):
@@ -1713,8 +1668,7 @@ class sortsearch_in_list(snippet):
     def snippet(self, auto_df):
         from pyspark.sql.functions import col
 
-        df = auto_df.where(col("cylinders").isin(["4", "6"]))
-        return df
+        return auto_df.where(col("cylinders").isin(["4", "6"]))
 
 
 class sortsearch_not_in_list(snippet):
@@ -1728,8 +1682,7 @@ class sortsearch_not_in_list(snippet):
     def snippet(self, auto_df):
         from pyspark.sql.functions import col
 
-        df = auto_df.where(~col("cylinders").isin(["4", "6"]))
-        return df
+        return auto_df.where(~col("cylinders").isin(["4", "6"]))
 
 
 class sortsearch_in_list_from_df(snippet):
@@ -1761,10 +1714,9 @@ If you have `DataFrame` 1 containing values you want to remove from `DataFrame` 
 
         # Alternatively we can register a temporary table and use a SQL expression.
         exclude_keys.registerTempTable("exclude_keys")
-        df = auto_df.filter(
+        return auto_df.filter(
             "modelyear not in ( select adjusted_year from exclude_keys )"
         )
-        return df
 
 
 class sortsearch_column_length(snippet):
@@ -1778,8 +1730,7 @@ class sortsearch_column_length(snippet):
     def snippet(self, auto_df):
         from pyspark.sql.functions import col, length
 
-        df = auto_df.where(length(col("carname")) < 12)
-        return df
+        return auto_df.where(length(col("carname")) < 12)
 
 
 class sortsearch_equality(snippet):
@@ -1793,8 +1744,7 @@ class sortsearch_equality(snippet):
     def snippet(self, auto_df):
         from pyspark.sql.functions import col
 
-        df = auto_df.where(col("cylinders") == "8")
-        return df
+        return auto_df.where(col("cylinders") == "8")
 
 
 class sortsearch_sort_descending(snippet):
@@ -1825,8 +1775,7 @@ class sortsearch_first_1k_rows(snippet):
 
     def snippet(self, auto_df):
         n = 10
-        df = auto_df.limit(n)
-        return df
+        return auto_df.limit(n)
 
 
 class sortsearch_multi_filter(snippet):
@@ -1860,8 +1809,7 @@ class sortsearch_remove_duplicates(snippet):
         self.docmd = "IGNORE"
 
     def snippet(self, auto_df):
-        df = auto_df.dropDuplicates(["carname"])
-        return df
+        return auto_df.dropDuplicates(["carname"])
 
 
 class sortsearch_filtering_basic(snippet):
@@ -1876,8 +1824,7 @@ class sortsearch_filtering_basic(snippet):
     def snippet(self, auto_df):
         from pyspark.sql.functions import col
 
-        df = auto_df.filter(col("mpg") > "30")
-        return df
+        return auto_df.filter(col("mpg") > "30")
 
 
 class transform_sql(snippet):
@@ -1900,10 +1847,9 @@ You can also join `DataFrames` if you register them. If you're porting complex S
         from pyspark.sql.functions import col, regexp_extract
 
         auto_df.registerTempTable("auto_df")
-        df = sqlContext.sql(
+        return sqlContext.sql(
             "select modelyear, avg(mpg) from auto_df group by modelyear"
         )
-        return df
 
 
 class transform_regexp_extract(snippet):
@@ -1920,7 +1866,7 @@ class transform_regexp_extract(snippet):
         from pyspark.sql.functions import col, regexp_extract
 
         group = 0
-        df = (
+        return (
             auto_df.withColumn(
                 "identifier", regexp_extract(col("carname"), "(\S?\d+)", group)
             )
@@ -1933,7 +1879,6 @@ class transform_regexp_extract(snippet):
             .drop("horsepower")
             .drop("weight")
         )
-        return df
 
 
 class transform_fillna_specific_columns(snippet):
@@ -1945,8 +1890,7 @@ class transform_fillna_specific_columns(snippet):
         self.priority = 120
 
     def snippet(self, auto_df):
-        df = auto_df.fillna({"horsepower": 0})
-        return df
+        return auto_df.fillna({"horsepower": 0})
 
 
 class transform_fillna_col_avg(snippet):
@@ -1960,8 +1904,9 @@ class transform_fillna_col_avg(snippet):
     def snippet(self, auto_df):
         from pyspark.sql.functions import avg
 
-        df = auto_df.fillna({"horsepower": auto_df.agg(avg("horsepower")).first()[0]})
-        return df
+        return auto_df.fillna(
+            {"horsepower": auto_df.agg(avg("horsepower")).first()[0]}
+        )
 
 
 class transform_fillna_group_avg(snippet):
@@ -1981,11 +1926,10 @@ Sometimes NULL values in a column cause problems and it's better to guess at a v
         unmodified_columns = auto_df.columns
         unmodified_columns.remove("horsepower")
         manufacturer_avg = auto_df.groupBy("cylinders").agg({"horsepower": "avg"})
-        df = auto_df.join(manufacturer_avg, "cylinders").select(
+        return auto_df.join(manufacturer_avg, "cylinders").select(
             *unmodified_columns,
             coalesce("horsepower", "avg(horsepower)").alias("horsepower"),
         )
-        return df
 
 
 class transform_json_to_key_value(snippet):
@@ -2003,8 +1947,7 @@ class transform_json_to_key_value(snippet):
         source = spark.sparkContext.parallelize(
             [["1", '{ "a" : 10, "b" : 11 }'], ["2", '{ "a" : 20, "b" : 21 }']]
         ).toDF(["id", "json"])
-        df = source.select("id", json_tuple(col("json"), "a", "b"))
-        return df
+        return source.select("id", json_tuple(col("json"), "a", "b"))
 
 
 class transform_query_json_column(snippet):
@@ -2191,8 +2134,7 @@ Spark's `subtract` operator is similar to SQL's `MINUS` operator.
     def snippet(self, auto_df):
         from pyspark.sql.functions import col
 
-        df = auto_df.subtract(auto_df.where(col("mpg") < "25"))
-        return df
+        return auto_df.subtract(auto_df.where(col("mpg") < "25"))
 
 
 class join_different_types(snippet):
@@ -2222,9 +2164,7 @@ This snippet shows how to use the various join strategies Spark supports. By def
         # Full join.
         joined = auto_df.join(auto_df, "carname", "full")
 
-        # Cross join.
-        df = auto_df.crossJoin(auto_df)
-        return df
+        return auto_df.crossJoin(auto_df)
 
 
 class dates_string_to_date(snippet):
@@ -2506,8 +2446,7 @@ This class's [`drop`](https://spark.apache.org/docs/latest/api/python/reference/
 """
 
     def snippet(self, auto_df):
-        df = auto_df.na.drop(thresh=1, subset=("horsepower",))
-        return df
+        return auto_df.na.drop(thresh=1, subset=("horsepower",))
 
 
 class missing_count_of_null_nan(snippet):
@@ -2692,14 +2631,13 @@ Graphically this process looks like:
         fit_cross_validator = cross_validator.fit(auto_df_fixed)
         best_pipeline_model = fit_cross_validator.bestModel
         best_regressor = best_pipeline_model.stages[1]
-        print("Best model has {} trees.".format(best_regressor.getNumTrees))
+        print(f"Best model has {best_regressor.getNumTrees} trees.")
 
         # Save the Cross Validator, to capture everything including stats.
         fit_cross_validator.write().overwrite().save("rf_regression_optimized.model")
 
         # EXCLUDE
-        retval = []
-        retval.append("Best model has {} trees.".format(best_regressor.getNumTrees))
+        retval = [f"Best model has {best_regressor.getNumTrees} trees."]
         print(retval)
         return retval
         # INCLUDE
@@ -2732,12 +2670,11 @@ Estimators require numeric inputs. If you have a string column, use `StringIndex
         indexer = StringIndexer(
             inputCol="manufacturer", outputCol="manufacturer_encoded"
         )
-        encoded = (
+        return (
             indexer.fit(df)
             .transform(df)
             .select(["manufacturer", "manufacturer_encoded"])
         )
-        return encoded
 
 
 class ml_onehot_encode(snippet):
@@ -2991,8 +2928,8 @@ The example below loads 2 regression models fit earlier and compares their metri
         # Evaluate performances.
         evaluator = RegressionEvaluator(predictionCol="prediction", labelCol="mpg")
         performances = [
-            ["simple", simple_predictions, dict()],
-            ["complex", complex_predictions, dict()],
+            ["simple", simple_predictions, {}],
+            ["complex", complex_predictions, {}],
         ]
         for label, predictions, tracker in performances:
             for metric in metrics:
@@ -3036,10 +2973,12 @@ Most classifiers and regressors include a property called `featureImportances`. 
         for feature, importance in zip(original_columns, real_model.featureImportances):
             print("{} contributes {:0.3f}%".format(feature, importance * 100))
 
-        # EXCLUDE
-        retval = []
-        for feature, importance in zip(original_columns, real_model.featureImportances):
-            retval.append("{} contributes {:0.3f}%".format(feature, importance * 100))
+        retval = [
+            "{} contributes {:0.3f}%".format(feature, importance * 100)
+            for feature, importance in zip(
+                original_columns, real_model.featureImportances
+            )
+        ]
         print(retval)
         return retval
         # INCLUDE
@@ -3170,13 +3109,11 @@ Spark has a few statistics packages like `Correlation`. Like with many Estimator
 
         # Compute the correlation matrix.
         matrix = Correlation.corr(df_vector, vector_col)
-        corr_array = matrix.collect()[0]["pearson({})".format(vector_col)].toArray()
+        corr_array = matrix.collect()[0][f"pearson({vector_col})"].toArray()
 
-        # This part is just for pretty-printing.
-        pdf = pandas.DataFrame(
+        return pandas.DataFrame(
             corr_array, index=feature_columns, columns=feature_columns
         )
-        return pdf
 
 
 class ml_save_model(snippet):
@@ -3293,7 +3230,7 @@ Some `Model`s support predictions on individual measurements using the `predict`
         input_vector = Vectors.dense([8, 307.0, 130.0])
         prediction = rf_model.predict(input_vector)
         print("Prediction is", prediction)
-        return "Prediction is " + str(prediction)
+        return f"Prediction is {str(prediction)}"
 
 
 class ml_load_model_predictproba(snippet):
@@ -3318,7 +3255,7 @@ Classification `Model`s let you get confidence levels for each possible output c
         input_vector = Vectors.dense([8, 307.0, 130.0])
         prediction = rf_model.predictProbability(input_vector)
         print("Predictions are", prediction)
-        return "Predictions are " + str(prediction)
+        return f"Predictions are {str(prediction)}"
 
 
 class performance_get_spark_version(snippet):
@@ -3553,8 +3490,7 @@ Coalescing reduces the number of partitions in a way that can be much more effec
         import math
 
         target_partitions = math.ceil(auto_df.rdd.getNumPartitions() / 2)
-        df = auto_df.coalesce(target_partitions)
-        return df
+        return auto_df.coalesce(target_partitions)
 
 
 class performance_shuffle_partitions(snippet):
@@ -3571,14 +3507,14 @@ When you have smaller datasets, reducing the number of shuffle partitions can sp
     def snippet(self, auto_df):
         # Default shuffle partitions is usually 200.
         grouped1 = auto_df.groupBy("cylinders").count()
-        print("{} partition(s)".format(grouped1.rdd.getNumPartitions()))
+        print(f"{grouped1.rdd.getNumPartitions()} partition(s)")
 
         # Set the shuffle partitions to 20.
         # This can reduce the number of files generated when saving DataFrames.
         spark.conf.set("spark.sql.shuffle.partitions", 20)
 
         grouped2 = auto_df.groupBy("cylinders").count()
-        print("{} partition(s)".format(grouped2.rdd.getNumPartitions()))
+        print(f"{grouped2.rdd.getNumPartitions()} partition(s)")
         return ["200 partition(s)", "20 partition(s)"]
 
 
@@ -3758,8 +3694,7 @@ class pandas_spark_dataframe_to_pandas_dataframe(snippet):
         self.priority = 100
 
     def snippet(self, auto_df):
-        pandas_df = auto_df.toPandas()
-        return pandas_df
+        return auto_df.toPandas()
 
 
 class pandas_pandas_dataframe_to_spark_dataframe(snippet):
@@ -3773,9 +3708,7 @@ class pandas_pandas_dataframe_to_spark_dataframe(snippet):
     def snippet(self, auto_df):
         # EXCLUDE
         pandas_df = auto_df.toPandas()
-        # INCLUDE
-        df = spark.createDataFrame(pandas_df)
-        return df
+        return spark.createDataFrame(pandas_df)
 
 
 class pandas_pandas_dataframe_to_spark_dataframe_custom(snippet):
@@ -3800,8 +3733,7 @@ class pandas_pandas_dataframe_to_spark_dataframe_custom(snippet):
         schema = StructType(
             [StructField(name, StringType(), True) for name in pandas_df.columns]
         )
-        df = spark.createDataFrame(pandas_df, schema)
-        return df
+        return spark.createDataFrame(pandas_df, schema)
 
 
 class pandas_udaf(snippet):
@@ -3865,8 +3797,7 @@ Be aware that rows in a Spark DataFrame have no guaranteed order unless you expl
 
     def snippet(self, auto_df):
         N = 10
-        pdf = auto_df.limit(N).toPandas()
-        return pdf
+        return auto_df.limit(N).toPandas()
 
 
 class profile_number_nulls(snippet):
@@ -3883,10 +3814,9 @@ This example creates a new DataFrame consisting of the colunm name and number of
     def snippet(self, auto_df):
         from pyspark.sql.functions import col, count, when
 
-        df = auto_df.select(
+        return auto_df.select(
             [count(when(col(c).isNull(), c)).alias(c) for c in auto_df.columns]
         )
-        return df
 
 
 class profile_numeric_averages(snippet):
@@ -3902,10 +3832,9 @@ This example uses Spark's `agg` function to aggregate multiple columns at once u
 """
 
     def snippet(self, auto_df_fixed):
-        numerics = set(["decimal", "double", "float", "integer", "long", "short"])
+        numerics = {"decimal", "double", "float", "integer", "long", "short"}
         exprs = {x[0]: "avg" for x in auto_df_fixed.dtypes if x[1] in numerics}
-        df = auto_df_fixed.agg(exprs)
-        return df
+        return auto_df_fixed.agg(exprs)
 
 
 class profile_numeric_min(snippet):
@@ -3921,10 +3850,9 @@ This example uses Spark's `agg` function to aggregate multiple columns at once u
 """
 
     def snippet(self, auto_df_fixed):
-        numerics = set(["decimal", "double", "float", "integer", "long", "short"])
+        numerics = {"decimal", "double", "float", "integer", "long", "short"}
         exprs = {x[0]: "min" for x in auto_df_fixed.dtypes if x[1] in numerics}
-        df = auto_df_fixed.agg(exprs)
-        return df
+        return auto_df_fixed.agg(exprs)
 
 
 class profile_numeric_max(snippet):
@@ -3940,10 +3868,9 @@ This example uses Spark's `agg` function to aggregate multiple columns at once u
 """
 
     def snippet(self, auto_df_fixed):
-        numerics = set(["decimal", "double", "float", "integer", "long", "short"])
+        numerics = {"decimal", "double", "float", "integer", "long", "short"}
         exprs = {x[0]: "max" for x in auto_df_fixed.dtypes if x[1] in numerics}
-        df = auto_df_fixed.agg(exprs)
-        return df
+        return auto_df_fixed.agg(exprs)
 
 
 class profile_numeric_median(snippet):
@@ -3961,19 +3888,13 @@ Median can be computed using SQL's `percentile` function with a value of 0.5.
     def snippet(self, auto_df_fixed):
         import pyspark.sql.functions as F
 
-        numerics = set(["decimal", "double", "float", "integer", "long", "short"])
-        aggregates = []
-        for name, dtype in auto_df_fixed.dtypes:
-            if dtype not in numerics:
-                continue
-            aggregates.append(
-                F.expr("percentile({}, 0.5)".format(name)).alias(
-                    "{}_median".format(name)
-                )
-            )
-        df = auto_df_fixed.agg(*aggregates)
-
-        return df
+        numerics = {"decimal", "double", "float", "integer", "long", "short"}
+        aggregates = [
+            F.expr(f"percentile({name}, 0.5)").alias(f"{name}_median")
+            for name, dtype in auto_df_fixed.dtypes
+            if dtype in numerics
+        ]
+        return auto_df_fixed.agg(*aggregates)
 
 
 class profile_outliers(snippet):
@@ -4060,16 +3981,13 @@ You may want to filter the results to remove any rows belonging to a customer be
     def snippet(self, spend_df):
         from pyspark.sql.functions import coalesce, lit
 
-        # Use distinct values of customer and date from the dataset itself.
-        # In general it's safer to use known reference tables for IDs and dates.
-        df = spend_df.join(
+        return spend_df.join(
             spend_df.select("customer_id")
             .distinct()
             .crossJoin(spend_df.select("date").distinct()),
             ["date", "customer_id"],
             "right",
         ).select("date", "customer_id", coalesce("spend_dollars", lit(0)))
-        return df
 
 
 class timeseries_first_seen(snippet):
@@ -4087,8 +4005,7 @@ class timeseries_first_seen(snippet):
         from pyspark.sql.window import Window
 
         w = Window().partitionBy("customer_id").orderBy("date")
-        df = spend_df.withColumn("first_seen", first("date").over(w))
-        return df
+        return spend_df.withColumn("first_seen", first("date").over(w))
 
 
 class timeseries_running_sum(snippet):
@@ -4113,8 +4030,7 @@ A comulative sum can be computed using using the standard `sum` function windowe
             .orderBy("date")
             .rangeBetween(Window.unboundedPreceding, 0)
         )
-        df = spend_df.withColumn("running_sum", sum("spend_dollars").over(w))
-        return df
+        return spend_df.withColumn("running_sum", sum("spend_dollars").over(w))
 
 
 class timeseries_running_sum_period(snippet):
@@ -4140,8 +4056,7 @@ A comulative sum within particular periods be computed using using the standard 
             .orderBy("date")
             .rangeBetween(Window.unboundedPreceding, 0)
         )
-        df = spend_df.withColumn("running_sum", sum("spend_dollars").over(w))
-        return df
+        return spend_df.withColumn("running_sum", sum("spend_dollars").over(w))
 
 
 class timeseries_running_average(snippet):
@@ -4166,8 +4081,7 @@ A comulative average can be computed using using the standard `avg` function win
             .orderBy("date")
             .rangeBetween(Window.unboundedPreceding, 0)
         )
-        df = spend_df.withColumn("running_avg", avg("spend_dollars").over(w))
-        return df
+        return spend_df.withColumn("running_avg", avg("spend_dollars").over(w))
 
 
 class timeseries_running_average_period(snippet):
@@ -4193,8 +4107,7 @@ A comulative average within particular periods be computed using using the stand
             .orderBy("date")
             .rangeBetween(Window.unboundedPreceding, 0)
         )
-        df = spend_df.withColumn("running_avg", avg("spend_dollars").over(w))
-        return df
+        return spend_df.withColumn("running_avg", avg("spend_dollars").over(w))
 
 
 class fileprocessing_load_files(snippet):
@@ -4386,9 +4299,7 @@ Be sure to read Delta Lake's documentation on [concurrency control](https://docs
             condition=expr("carname like 'Volks%'"), set={"carname": expr("carname")}
         )
 
-        # Convert back to a DataFrame.
-        df = dt.toDF()
-        return df
+        return dt.toDF()
 
 
 class management_merge_tables(snippet):
@@ -4456,9 +4367,7 @@ Delta tables maintain a lot of metadata, ranging from things like operation time
         output_path = "delta_tests"
         dt = DeltaTable.forPath(spark, output_path)
 
-        # Show select table history.
-        df = dt.history().select("version timestamp operation".split())
-        return df
+        return dt.history().select("version timestamp operation".split())
 
 
 class management_specific_version(snippet):
@@ -4491,10 +4400,7 @@ To load a specific version of a Delta table, use the `versionAsOf` option. This 
             .load(output_path)
         )
 
-        # EXCLUDE
-        retval = []
-        retval.append("Most recent version is " + str(most_recent_version))
-        return retval
+        return [f"Most recent version is {str(most_recent_version)}"]
         # INCLUDE
 
 
@@ -4530,10 +4436,7 @@ Usage Notes:
             .load(output_path)
         )
 
-        # EXCLUDE
-        retval = []
-        retval.append("Most recent timestamp is " + str(most_recent_timestamp))
-        return retval
+        return [f"Most recent timestamp is {str(most_recent_timestamp)}"]
         # INCLUDE
 
 
@@ -4558,9 +4461,7 @@ Vacuuming (sometimes called compacting) a table is done by loading the tables' `
         retention_window_hours = 168
         dt.vacuum(retention_window_hours)
 
-        # Show the new versions.
-        df = dt.history().select("version timestamp".split()).orderBy("version")
-        return df
+        return dt.history().select("version timestamp".split()).orderBy("version")
 
 
 class management_write_custom_metadata(snippet):
@@ -4860,8 +4761,7 @@ Your data needs a timestamp column for windowing. If your source data doesn't in
     def snippet(self, auto_df):
         from pyspark.sql.functions import current_timestamp
 
-        df = auto_df.withColumn("timestamp", current_timestamp())
-        return df
+        return auto_df.withColumn("timestamp", current_timestamp())
 
 
 class streaming_session_window(snippet):
@@ -4910,11 +4810,7 @@ This example performs an action when a running average exceeds 100.
 
         @udf(returnType=BooleanType())
         def myudf(short_circuit, state, value):
-            if short_circuit == True:
-                return True
-
-            # Log, send an alert, etc.
-            return False
+            return short_circuit == True
 
         df = (
             spark.readStream.format("socket")
@@ -5049,7 +4945,7 @@ for name, clazz in clsmembers:
 
 def generate(args):
     # Gather up all the categories and snippets.
-    snippets = dict()
+    snippets = {}
     for cheat in cheat_sheet:
         if cheat.category not in snippets:
             snippets[cheat.category] = []
@@ -5082,7 +4978,6 @@ def generate_notebook(args, snippets, sorted_categories, category_spec):
     import nbformat as nbf
 
     nb = nbf.v4.new_notebook()
-    cells = []
     target_file = "cheatsheet.ipynb"
 
     header_format = "## {}"
@@ -5091,7 +4986,7 @@ def generate_notebook(args, snippets, sorted_categories, category_spec):
     # Info to get the user started.
     preamble = "Run This Code First! This creates the Spark session and loads data."
     preamble = header_format.format(preamble)
-    cells.append(nbf.v4.new_markdown_cell(preamble))
+    cells = [nbf.v4.new_markdown_cell(preamble)]
     fd = open("notebook_initialization_code.py")
     preamble_code = fd.read()
     cells.append(nbf.v4.new_code_cell(preamble_code))
@@ -5109,9 +5004,12 @@ def generate_notebook(args, snippets, sorted_categories, category_spec):
             result = cheat.run(show=False)
             if type(result) in (pyspark.sql.dataframe.DataFrame, tuple):
                 source += "\ndf.show()"
-            cells.append(nbf.v4.new_markdown_cell(name_format.format(name)))
-            cells.append(nbf.v4.new_code_cell(source))
-
+            cells.extend(
+                (
+                    nbf.v4.new_markdown_cell(name_format.format(name)),
+                    nbf.v4.new_code_cell(source),
+                )
+            )
     nb["cells"] = cells
     with open(target_file, "w") as f:
         nbf.write(nb, f)
@@ -5145,10 +5043,10 @@ Table of contents
     for category in sorted_categories:
         list = snippets[category]
         category_slug = slugify(category)
-        toc_content_list.append("   * [{}](#{})".format(category, category_slug))
+        toc_content_list.append(f"   * [{category}](#{category_slug})")
         for name, priority, source, raw_source, cheat in list:
             name_slug = slugify(name)
-            toc_content_list.append("      * [{}](#{})".format(name, name_slug))
+            toc_content_list.append(f"      * [{name}](#{name_slug})")
     toc_contents = "\n".join(toc_content_list)
 
     with open("README.md", "w") as fd:
@@ -5166,7 +5064,7 @@ Table of contents
             header_text = header.format(category, "=" * len(category))
             fd.write(header_text)
             fd.write(category_spec[category]["description"])
-            toc_content_list.append("   * [{}](#{})".format(category, category_slug))
+            toc_content_list.append(f"   * [{category}](#{category_slug})")
             for name, priority, source, raw_source, cheat in list:
                 header_text = header.format(name, "-" * len(name))
                 if cheat.requires_environment and args.skip_environment:
@@ -5238,7 +5136,7 @@ def all_tests(args):
 
 def dump_priorities():
     for cheat in cheat_sheet:
-        print("{},{},{}".format(cheat.category, cheat.name, cheat.priority))
+        print(f"{cheat.category},{cheat.name},{cheat.priority}")
 
 
 def dump_undocumented():
@@ -5275,7 +5173,7 @@ def test(test_name):
             return
     print("No test named " + test_name)
     for cheat in cheat_sheet:
-        print("{},{}".format(cheat.category, cheat.name))
+        print(f"{cheat.category},{cheat.name}")
     sys.exit(1)
 
 
@@ -5340,8 +5238,6 @@ def main():
             shutil.rmtree(directory)
         except Exception as e:
             print(e)
-            pass
-
     if args.dump_priorities:
         dump_priorities()
         return
