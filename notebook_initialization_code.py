@@ -6,7 +6,7 @@ from pyspark.sql.functions import col
 from delta import *
 
 # Create our Spark session and SQL Context.
-warehouse_path = "file://{}/spark_warehouse".format(os.getcwd())
+warehouse_path = f"file://{os.getcwd()}/spark_warehouse"
 builder = (
     SparkSession.builder.master("local[*]")
     .config("spark.executor.memory", "2G")
